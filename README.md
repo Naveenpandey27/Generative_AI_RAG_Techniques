@@ -151,6 +151,7 @@ faiss-cpu>=1.7.4
 PyPDF2>=3.0.0
 transformers>=4.30.0
 torch>=2.0.0
+langchain-groq>=0.2.2
 ```
 
 ## Configuration
@@ -197,12 +198,12 @@ export GROQ_API_KEY='your_groq_api_key'
    - Adjust similarity search parameters
    - Refine prompt templates
 
-## License
-
-MIT License
 
 ## Contributors
 
 - Naveen Pandey - Original Author
+
+  Read fule article here: https://medium.com/ai-in-plain-english/rag-techniques-part-1-of-5-implementing-5-effective-methods-a92c58399875
+  
 
 ---
