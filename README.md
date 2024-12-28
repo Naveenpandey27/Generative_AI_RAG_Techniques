@@ -4,141 +4,205 @@ This folder will contains all the code to different RAG Techniques.
 
 # RAG Techniques: Implementing 5 Effective Methods
 
+A comprehensive implementation guide for various Retrieval-Augmented Generation (RAG) techniques.
+
 ## Introduction
 
-Retrieval-Augmented Generation (RAG) enhances language model outputs by integrating external knowledge, resulting in more accurate and contextually aware responses. This project demonstrates the implementation of five effective RAG techniques to improve generative model performance.
+Retrieval-Augmented Generation (RAG) enhances language model outputs by integrating external knowledge, resulting in more accurate and contextually aware responses. This repository demonstrates the implementation of effective RAG techniques to improve generative model performance.
 
 ## Table of Contents
 
-- [Introduction](#introduction)
 - [Installation](#installation)
-- [Usage](#usage)
-  - [1. Chunking Documents](#1-chunking-documents)
-  - [2. Creating Embeddings](#2-creating-embeddings)
-  - [3. Storing in Vector Database and Getting Response](#3-storing-in-vector-database-and-getting-response)
+- [Implementation Guide](#implementation-guide)
+  - [Document Processing](#document-processing)
+  - [Embedding Creation](#embedding-creation)
+  - [Vector Database Integration](#vector-database-integration)
 - [Features](#features)
 - [Dependencies](#dependencies)
 - [Configuration](#configuration)
-- [Documentation](#documentation)
-- [Examples](#examples)
+- [Best Practices](#best-practices)
 - [Troubleshooting](#troubleshooting)
-- [Contributors](#contributors)
 - [License](#license)
+- [Contributors](#contributors)
 
 ## Installation
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/yourusername/rag-techniques.git
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/rag-techniques.git
 
-2. **Navigate to the project directory:**
-  ```bash
+# Navigate to project directory
 cd rag-techniques
 
-3. **Install the required dependencies:**
-  ```bash
+# Install dependencies
 pip install -r requirements.txt
+```
 
-Usage
-1. Chunking Documents
-Break large documents into manageable chunks to facilitate efficient processing.
+## Implementation Guide
 
+### Document Processing
+
+```python
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import PyPDFLoader
+from langchain.embeddings import HuggingFaceEmbeddings
+from langchain.vectorstores import FAISS
+from langchain.chains import create_retrieval_chain, create_stuff_documents_chain
+from langchain.prompts import ChatPromptTemplate
+from langchain_groq import ChatGroq
 
-def data_loader(pdf_path):
-    loader = PyPDFLoader(pdf_path)
-    documents = loader.load()
-    return documents
+class RAGPipeline:
+    def __init__(self, model_name='all-MiniLM-L6-v2'):
+        self.embeddings = HuggingFaceEmbeddings(model_name=model_name)
+        self.llm = ChatGroq(model="mixtral-8x7b-32768")
+    
+    def load_documents(self, pdf_path: str):
+        """Load documents from PDF file."""
+        loader = PyPDFLoader(pdf_path)
+        return loader.load()
+    
+    def chunk_documents(self, documents, chunk_size=1000, chunk_overlap=200):
+        """Split documents into overlapping chunks."""
+        text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+            length_function=len,
+        )
+        return text_splitter.split_documents(documents)
+    
+    def create_vector_store(self, chunks):
+        """Create embeddings and store in FAISS vector database."""
+        return FAISS.from_documents(chunks, self.embeddings)
+    
+    def create_qa_chain(self, vectorstore):
+        """Create retrieval QA chain."""
+        prompt = ChatPromptTemplate.from_template("""
+        Answer the following question using only the provided context.
+        
+        Context:
+        {context}
+        
+        Question: {input}
+        
+        Instructions:
+        1. Use only information from the provided context
+        2. If the context doesn't contain enough information, say so
+        3. Provide specific references when possible
+        4. Structure your response clearly and logically
+        """)
+        
+        retriever = vectorstore.as_retriever(
+            search_type="similarity",
+            search_kwargs={"k": 3}
+        )
+        
+        document_chain = create_stuff_documents_chain(self.llm, prompt)
+        return create_retrieval_chain(retriever, document_chain)
+    
+    def process_query(self, chain, query: str):
+        """Process a query through the RAG pipeline."""
+        response = chain.invoke({"input": query})
+        return {
+            "query": query,
+            "answer": response.get("answer", "No answer found"),
+            "source_documents": response.get("source_documents", [])
+        }
 
-def chunk_document(documents):
-    text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=1000,
-        chunk_overlap=200,
-        length_function=len,
-    )
-    chunks = text_splitter.split_documents(documents)
-    return chunks
+# Usage Example
+def main():
+    # Initialize the RAG pipeline
+    rag = RAGPipeline()
+    
+    # Load and process documents
+    documents = rag.load_documents("path/to/your/document.pdf")
+    chunks = rag.chunk_documents(documents)
+    vectorstore = rag.create_vector_store(chunks)
+    
+    # Create QA chain
+    qa_chain = rag.create_qa_chain(vectorstore)
+    
+    # Process queries
+    query = "What are the key components of a RAG system?"
+    result = rag.process_query(qa_chain, query)
+    print(f"Q: {result['query']}")
+    print(f"A: {result['answer']}")
 
-# Example usage
-pdf_path = '/path/to/your/document.pdf'
-documents = data_loader(pdf_path)
-chunks = chunk_document(documents)
+if __name__ == "__main__":
+    main()
+```
 
-** Pro Tip: Choose your chunk size carefully! Too large, and you might miss specific details. Too small, and you might lose context. A good starting point is 500–1000 characters with some overlap.**
+## Features
 
-2. Creating Embeddings
-Convert text chunks into numerical representations to capture semantic meaning.
+- Document chunking with configurable size and overlap
+- Embedding generation using HuggingFace models
+- FAISS vector database integration
+- Configurable retrieval chain
+- Comprehensive error handling
+- Structured response format
 
+## Dependencies
 
-from sentence_transformers import SentenceTransformer
+Create a `requirements.txt` file with the following:
 
-def create_embeddings_and_store_db(chunks):
-    model_name = 'all-MiniLM-L6-v2'
-    embeddings = HuggingFaceEmbeddings(model_name=model_name)
-    vectorstore = FAISS.from_documents(chunks, embeddings)
-    return vectorstore
+```
+langchain>=0.1.0
+sentence-transformers>=2.2.0
+faiss-cpu>=1.7.4
+PyPDF2>=3.0.0
+transformers>=4.30.0
+torch>=2.0.0
+```
 
-# Create embeddings
-chunk_embeddings = create_embeddings_and_store_db(chunks)
+## Configuration
 
-3. Storing in Vector Database and Getting Response
-Store embeddings in a vector database for efficient retrieval and generate responses based on user queries.
+Set up required environment variables:
 
-def create_qa_retriever(vectorstore):
-    prompt = ChatPromptTemplate.from_template("""
-    Please answer the following question using only the information provided in the context below.
-
-    1. Think through the details step by step before crafting your response.
-    2. Deliver a comprehensive and well-structured answer.
-
-    <context>
-    {context}
-    </context>
-
-    Question: {input}""")
-
-    llm = ChatGroq(model="mixtral-8x7b-32768")
-    retriever = vectorstore.as_retriever()
-    document_chain = create_stuff_documents_chain(llm, prompt)
-    retrieval_chain = create_retrieval_chain(retriever, document_chain)
-    return retrieval_chain
-
-# Example usage
-qa_retriever = create_qa_retriever(chunk_embeddings)
-query = "Your question here"
-response = qa_retriever.invoke({"input": query})
-print(f"Q: {query}")
-print(f"A: {response['answer']}")
-
-
-Features
-1. **Document Chunking: Efficiently splits large documents into smaller, manageable chunks.**
-2. **Embedding Creation: Generates embeddings that capture the semantic meaning of text chunks.**
-3. **Vector Database Storage: Stores embeddings in a vector database for quick retrieval.**
-4. **Question-Answer Retrieval: Retrieves relevant information based on user queries and generates accurate responses.**
-
-
-**Dependencies**
-Python 3.x
-LangChain
-SentenceTransformers
-FAISS
-PyPDFLoader
-ChatGroq
-
-**Configuration**
-Ensure that you have the necessary API keys and configurations set up for the services used in this project. For example:
-
+```bash
 export GROQ_API_KEY='your_groq_api_key'
+```
 
-**Troubleshooting**
-If you encounter issues:
+## Best Practices
 
-Ensure all dependencies are installed correctly.
-Verify that API keys and configurations are set up properly.
+### Document Chunking
+- Recommended chunk size: 500-1000 characters
+- Overlap: 10-20% of chunk size
+- Adjust based on content type and complexity
 
-Consult the issues section for similar problems and solutions.
+### Vector Database
+- Regular index maintenance
+- Consider GPU acceleration for large datasets
+- Implement proper error handling and backup strategies
 
-**Contributors**
-**Naveen Pandey** - Author of the original article.
+### Query Processing
+- Implement rate limiting for API calls
+- Cache frequently accessed results
+- Monitor and log response times
+
+## Troubleshooting
+
+### Common Issues and Solutions
+
+1. Memory Issues
+   - Reduce chunk size
+   - Implement batch processing
+   - Use streaming for large responses
+
+2. Performance Issues
+   - Optimize vector store configuration
+   - Adjust retrieval parameters
+   - Consider using GPU acceleration
+
+3. Quality Issues
+   - Fine-tune chunk size and overlap
+   - Adjust similarity search parameters
+   - Refine prompt templates
+
+## License
+
+MIT License
+
+## Contributors
+
+- Naveen Pandey - Original Author
+
+---
