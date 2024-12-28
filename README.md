@@ -1,5 +1,5 @@
 # Generative_AI_RAG_Techniques
-This folder will contains all the code to different RAG Techniques.
+This folder contains implementations of various Retrieval-Augmented Generation (RAG) techniques, designed to enhance Large Language Model (LLM) responses with relevant external knowledge.
 
 
 # RAG Techniques: Implementing 5 Effective Methods
