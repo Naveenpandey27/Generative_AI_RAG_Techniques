@@ -201,7 +201,7 @@ export GROQ_API_KEY='your_groq_api_key'
 
 ## Contributors
 
-- **Naveen Pandey** - Original Author
+- **Naveen Pandey**
 
   Read full article here: https://medium.com/ai-in-plain-english/rag-techniques-part-1-of-5-implementing-5-effective-methods-a92c58399875
   
